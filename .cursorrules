@@ -145,36 +145,61 @@ brand-new, much larger project.
 - **`frontend/`** — a React (Vite) app, already built and delivered as a UI
   **placeholder layer**, build-verified (`npm run build` succeeds, 63 source
   files). It is intentionally ahead of the backend.
-- **`backend/`** — started (as of 2026-09-24). Contains `package.json`
-  (express ^5.2.1, pg ^8.23.0, nodemon ^3.1.14 — nodemon currently wrongly in
-  `dependencies`, flagged for him to move to `devDependencies`), a `dev`
-  script (`nodemon index.js`), and a 4-line `index.js` that creates the app
-  and calls `app.listen(5000, () => {})`. Open fixes assigned to him: port
-  via `process.env.PORT || 5000`, a real listen callback log, `.gitignore`
-  for `node_modules`. No routes, no middleware, no folders yet.
-  Frontend `src/api/config.js` expects `http://localhost:5000/api` and has
-  `USE_PLACEHOLDER_API = true` — flip to `false` only once real routes exist.
-  **Express lessons have begun.** Done so far: `express()`/app object
-  explored via `explore.js` (application/request/response blueprints,
-  req = Node IncomingMessage, res = ServerResponse), `PORT` from env,
-  listen callback log, `GET /api/health` working, res methods
-  (status/json/send/sendStatus/chaining, one-response rule), Express's
-  default final-handler 404, 400 vs 401 vs 403 vs 404.
-  **Decision (2026-09-24): no hard-coded arrays — every resource goes
-  straight into PostgreSQL, feature by feature (API by API), migrating the
-  placeholder data from `frontend/src/api/placeholderApi.js` one resource at
-  a time.** Planned order: verify Postgres 18 setup + create `marketspace`
-  DB → `pg` Pool + health check that also pings the DB → categories table +
-  `GET /api/categories` → users table (seeded, no login yet) → listings
-  (+ filters/pagination/detail) → reviews/comments reads → middleware,
-  `express.json()`, validation, error handling, folder structure as each
-  becomes needed → AUTH (register/login done properly) → protected features
-  (cart, orders, bookings, favorites, messages, notifications) → admin.
-  Auth is deliberately NOT first: it needs body parsing, validation,
-  middleware, error handling and a users table to be learned first.
-  Frontend switch: `USE_PLACEHOLDER_API` is all-or-nothing; he'll need a
-  per-resource switch (his own frontend edit) plus CORS before any page
-  talks to the real backend. Built incrementally — never scaffold wholesale.
+- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-05).
+  `package.json`: express ^5.2.1, pg ^8.23.0, multer, cors, nodemon.
+  **`backend/db/schema.sql`**: `users`, `categories` (with `slug`), `listings`,
+  `listing_photos`, `comments` — all use `INTEGER GENERATED ALWAYS AS IDENTITY`
+  PKs; FKs are integer; `listing_photos.file_path` is relative to `photos/`.
+  **`backend/db/seed.sql`**: 8 users, 5 categories, 14 listings, 28 photo
+  rows, 28 comments. Re-run: `psql -d marketspace -f backend/db/schema.sql`
+  then `backend/db/seed.sql`.
+  **`backend/photos/listings/`**: 28 seed JPGs named `{listing-slug}-{01|02}.jpg`
+  (e.g. `walnut-headphone-stand-01.jpg`); DB stores `listings/walnut-headphone-stand-01.jpg`.
+  **Routes built:** CORS, `express.json()`, static `/photos`, `POST /api/listings`
+  (WIP — still passes category slug into integer FK, needs slug→id lookup),
+  `GET /api/listings/:id` (works — joins categories + listing_photos, returns
+  photoUrl/photos[]), `POST /api/listings/:id/photos` (multer + listing_photos insert).
+  **`GET /api/health`**: broken — references undefined `result`; fix assigned later.
+  **Routes NOT built yet:** `GET /api/listings` (IN PROGRESS — see active lesson),
+  `GET /api/categories`, comments/reviews reads, auth, cart, etc.
+  Frontend `USE_PLACEHOLDER_API = true` still — home feed uses real backend only
+  because `getListings()` in `listingsApi.js` bypasses `request()` with direct
+  `fetch` (same pattern as `getListingById`). Do NOT flip global placeholder off
+  until other resources are ready.
+  **Decision (2026-09-24):** no hard-coded arrays — Postgres only, one API at a time.
+  Planned order unchanged: categories GET → finish listings list → comments reads → …
+  Auth still deliberately later.
+
+### Active lesson (paused 2026-10-05): `GET /api/listings` — home feed from DB
+
+**Goal:** Home page (`HomeFeedPage.jsx`) loads cards from Postgres, not placeholder.
+
+**Frontend flow (taught, mostly done):**
+- `HomeFeedPage` merges `{ ...filters, page, limit: pageSize }` and calls `getListings()`.
+- `filters` object keys come from FilterPanel (`category`, `minPrice`, `maxPrice`, `sort`)
+  and SearchBar (`q`). `page`/`limit` are separate pagination state.
+- `getListings(filters = {})` uses `URLSearchParams(filters)` → query string on GET.
+- `listingsApi.js` `getListings` now uses direct `fetch` to Express (not placeholder).
+
+**Backend route:** `app.get("/api/listings")` in `backend/index.js` — **incomplete**.
+
+Steps completed by learner (with tutor):
+1. ✅ Read `page`, `limit` from `req.query`; compute `offset = (page - 1) * limit`.
+2. ✅ `COUNT(*)::int AS total` — taught `::int` cast, `result.rows[0].total`, why not
+   fetch-all-then-filter-in-JS.
+
+**Next step for learner (do NOT skip ahead):**
+3. Main `SELECT` with JOINs (`categories`, `listing_photos` where `sort_order = 0`),
+   `LIMIT $1 OFFSET $2`, map rows to `{ id, title, priceInCents, category, type,
+   photoUrl, averageRating: 0 }`, then `res.json({ listings, total, page, totalPages })`.
+   Teach one step at a time; he writes the SQL; tutor reviews.
+
+**Later steps (not now):** SQL filters for `category`, `q`, `minPrice`, `maxPrice`, `sort`;
+then `GET /api/categories` for the filter dropdown.
+
+**Concepts covered this session:** numeric auto-increment IDs vs text slugs; `listing_photos`
+table; photo file naming; `req.query` vs `req.params`; pagination offset; `pool.query`
+returns `result.rows` (array of objects); spread `{ ...filters, page, limit }` on frontend.
 - **Domain, chosen deliberately:** a marketplace (physical products with
   stock) + bookable services (availability slots, like appointments) + a
   light social layer (user profiles with avatar/cover photo, follow, reviews,

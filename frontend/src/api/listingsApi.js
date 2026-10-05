@@ -42,7 +42,11 @@ export async function uploadListingPhotos(id, photos) {
       const body = await response.text();
       const pre = body.match(/<pre>([\s\S]*?)<\/pre>/);
       const message = pre
-        ? pre[1].replace(/<br\s*\/?>/gi, "\n").replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "").trim()
+        ? pre[1]
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/&nbsp;/g, " ")
+            .replace(/<[^>]+>/g, "")
+            .trim()
         : body.trim();
       throw new Error(message || `Photo upload failed with status ${response.status}`);
     }
@@ -56,13 +60,32 @@ export async function uploadListingPhotos(id, photos) {
 }
 
 export async function getListings(filters = {}) {
-  const params = new URLSearchParams(filters);
-  return request(`/listings?${params.toString()}`);
+  try {
+    const params = new URLSearchParams(filters);
+    const response = await fetch(`${url}?${params.toString()}`);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || "Failed to fetch listings.");
+    }
+
+    const data = await response.json();
+
+    return data;
+  } catch (err) {
+    console.log(err);
+    throw new Error(err);
+  }
 }
 
-// Expects: GET /api/listings/:id
+// GET /api/listings/:id from Express, not the placeholder list.
 export async function getListingById(listingId) {
-  return request(`/listings/${listingId}`);
+  const response = await fetch(`${url}/${listingId}`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message || "Listing not found.");
+  }
+  return response.json();
 }
 
 // Expects: PATCH /api/listings/:id  body: partial listing fields

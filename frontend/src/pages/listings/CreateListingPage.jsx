@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createListing, uploadListingPhotos } from "../../api/listingsApi.js";
 import { getCategories } from "../../api/categoriesApi.js";
-import { PhotoUploader } from "../../components/common/PhotoUploader.jsx";
 import { ErrorMessage } from "../../components/common/ErrorMessage.jsx";
 import { LISTING_TYPE } from "../../utils/constants.js";
 
@@ -11,10 +10,8 @@ export function CreateListingPage() {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdListingId, setCreatedListingId] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [previews, setPreviews] = useState([]);
-  const [attachedCount, setAttachedCount] = useState(0);
   const previewsRef = useRef([]);
 
   // blob: URLs are owned by this page. Revoke them when the page unmounts
@@ -43,6 +40,10 @@ export function CreateListingPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    if (photos.length < 1) {
+      setError(new Error("Add at least one photo."));
+      return;
+    }
     setIsSubmitting(true);
     const form = new FormData(e.target);
 
@@ -59,19 +60,11 @@ export function CreateListingPage() {
             : undefined,
       });
 
-      // The listing id does not exist until create returns. Photos are
-      // optional: skip the upload when the file input was left empty.
-      // If the photo step fails, the listing still exists — don't make
-      // the user submit the form again and create a second copy.
-      if (photos.length > 0) {
-        try {
-          await uploadListingPhotos(listing.id, photos);
-          setAttachedCount(photos.length);
-        } catch (photoErr) {
-          setError(photoErr);
-        }
-      }
-      setCreatedListingId(listing.id);
+      // The listing id does not exist until create returns, so the photo
+      // request is second. A photo is required: handleSubmit already
+      // returned if photos was empty.
+      await uploadListingPhotos(listing.id, photos);
+      navigate(`/listings/${listing.id}`);
     } catch (err) {
       setError(err);
     } finally {
@@ -79,47 +72,12 @@ export function CreateListingPage() {
     }
   }
 
-  // Photos chosen on the form are uploaded as soon as the listing has an
-  // id. This screen is only for adding more, or for skipping ahead.
-  if (createdListingId) {
-    return (
-      <div className="page narrow">
-        <p className="eyebrow">Almost there</p>
-        <h1>{attachedCount > 0 ? "Photos attached" : "Add photos"}</h1>
-        <p>
-          {attachedCount > 0
-            ? "Those photos are already on the listing. The first one is the picture on the home page card. You can add more, or go look."
-            : "The listing is already saved. A photo is optional — add one now, or leave the card with just its title."}
-        </p>
-        {error && <ErrorMessage error={error} />}
-        <PhotoUploader
-          multiple
-          onUpload={(files) => uploadListingPhotos(createdListingId, files)}
-          label="Listing photos"
-        />
-        <div className="row">
-          <button className="btn" type="button" onClick={() => navigate("/")}>
-            View on home page
-          </button>
-          <button
-            className="btn secondary"
-            type="button"
-            onClick={() => navigate(`/listings/${createdListingId}`)}
-          >
-            Open listing
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="page narrow">
       <p className="eyebrow">New listing</p>
       <h1>Add a listing</h1>
       <p>
-        Fill this in and it shows up on the home page with the other listings. Nothing is
-        sent to the Express server yet.
+        A photo is required. Submitting creates the listing and uploads that photo.
       </p>
       <form onSubmit={handleSubmit} className="card">
         <div className="field">
@@ -158,18 +116,17 @@ export function CreateListingPage() {
           <input name="stock" type="number" min="0" />
         </div>
         <div className="field">
-          <label htmlFor="listing-photos">Photos (optional)</label>
+          <label htmlFor="listing-photos">Photos</label>
           <input
             id="listing-photos"
             name="photos"
             type="file"
             accept="image/*"
             multiple
+            required
             onChange={handlePhotoChange}
           />
-          <p className="muted">
-            Skip this if you want. The first photo is the picture on the home page card.
-          </p>
+          <p className="muted">At least one photo is required.</p>
           {previews.length > 0 && (
             <div className="photo-preview-row">
               {previews.map((src) => (

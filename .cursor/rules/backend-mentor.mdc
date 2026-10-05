@@ -145,36 +145,15 @@ brand-new, much larger project.
 - **`frontend/`** — a React (Vite) app, already built and delivered as a UI
   **placeholder layer**, build-verified (`npm run build` succeeds, 63 source
   files). It is intentionally ahead of the backend.
-- **`backend/`** — started (as of 2026-09-24). Contains `package.json`
-  (express ^5.2.1, pg ^8.23.0, nodemon ^3.1.14 — nodemon currently wrongly in
-  `dependencies`, flagged for him to move to `devDependencies`), a `dev`
-  script (`nodemon index.js`), and a 4-line `index.js` that creates the app
-  and calls `app.listen(5000, () => {})`. Open fixes assigned to him: port
-  via `process.env.PORT || 5000`, a real listen callback log, `.gitignore`
-  for `node_modules`. No routes, no middleware, no folders yet.
-  Frontend `src/api/config.js` expects `http://localhost:5000/api` and has
-  `USE_PLACEHOLDER_API = true` — flip to `false` only once real routes exist.
-  **Express lessons have begun.** Done so far: `express()`/app object
-  explored via `explore.js` (application/request/response blueprints,
-  req = Node IncomingMessage, res = ServerResponse), `PORT` from env,
-  listen callback log, `GET /api/health` working, res methods
-  (status/json/send/sendStatus/chaining, one-response rule), Express's
-  default final-handler 404, 400 vs 401 vs 403 vs 404.
-  **Decision (2026-09-24): no hard-coded arrays — every resource goes
-  straight into PostgreSQL, feature by feature (API by API), migrating the
-  placeholder data from `frontend/src/api/placeholderApi.js` one resource at
-  a time.** Planned order: verify Postgres 18 setup + create `marketspace`
-  DB → `pg` Pool + health check that also pings the DB → categories table +
-  `GET /api/categories` → users table (seeded, no login yet) → listings
-  (+ filters/pagination/detail) → reviews/comments reads → middleware,
-  `express.json()`, validation, error handling, folder structure as each
-  becomes needed → AUTH (register/login done properly) → protected features
-  (cart, orders, bookings, favorites, messages, notifications) → admin.
-  Auth is deliberately NOT first: it needs body parsing, validation,
-  middleware, error handling and a users table to be learned first.
-  Frontend switch: `USE_PLACEHOLDER_API` is all-or-nothing; he'll need a
-  per-resource switch (his own frontend edit) plus CORS before any page
-  talks to the real backend. Built incrementally — never scaffold wholesale.
+- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-05).
+  See `.cursorrules` "Current state" for full handoff. Summary: schema has
+  users/categories/listings/listing_photos/comments (integer IDs); seed has
+  14 listings + 28 photos; photo files in `backend/photos/listings/`.
+  Routes: `GET /api/listings/:id` and photo upload work; **`GET /api/listings`
+  IN PROGRESS** (steps 1–2 done: req.query page/limit/offset + COUNT; step 3
+  next: JOIN SELECT + res.json). `GET /api/categories` not built.
+  `USE_PLACEHOLDER_API` still true; `getListings`/`getListingById` bypass it
+  via direct fetch in `listingsApi.js`. Continue one-step-at-a-time mentoring.
 - **Domain, chosen deliberately:** a marketplace (physical products with
   stock) + bookable services (availability slots, like appointments) + a
   light social layer (user profiles with avatar/cover photo, follow, reviews,
