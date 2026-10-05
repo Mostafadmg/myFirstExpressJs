@@ -1,0 +1,13 @@
+POST http://localhost:5000/api/listings
+Content-Type: application/json
+
+{
+    "title":"Vintage lamp",
+    "description":"A small desk lamp",
+    "priceInCents": 2500,
+    "category":"home",
+  "type": "product",
+"stock": 3
+
+}
+

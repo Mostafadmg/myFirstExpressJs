@@ -15,7 +15,8 @@ export function HomeFeedPage() {
   const [filters, setFilters] = useState({});
   const [status, setStatus] = useState("loading"); // loading | success | error
   const [error, setError] = useState(null);
-  const { page, setPage, pageSize, totalPages, setTotalPages, nextPage, prevPage } = usePagination();
+  const { page, setPage, pageSize, totalPages, setTotalPages, nextPage, prevPage } =
+    usePagination();
 
   // Loads categories once. Empty dependency array = "run after the first
   // render only," same lesson as the Animal Shelter's useEffect fix.
@@ -52,7 +53,9 @@ export function HomeFeedPage() {
         <div>
           <p className="eyebrow">Goods · Time · People</p>
           <h1>A market for things and hours.</h1>
-          <p>Shop physical listings, book a time slot, or follow the person who made it.</p>
+          <p>
+            Shop physical listings, book a time slot, or follow the person who made it.
+          </p>
         </div>
         <div className="hero-aside">
           <div className="hero-chip">
@@ -89,7 +92,12 @@ export function HomeFeedPage() {
       {status === "success" && (
         <>
           <ListingGrid listings={listings} />
-          <Pagination page={page} totalPages={totalPages} onPrev={prevPage} onNext={nextPage} />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPrev={prevPage}
+            onNext={nextPage}
+          />
         </>
       )}
     </div>

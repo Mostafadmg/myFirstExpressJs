@@ -25,6 +25,36 @@ export async function createListing(listing) {
   }
 }
 
+export async function uploadListingPhotos(id, photos) {
+  try {
+    const formData = new FormData();
+    const photoURL = `http://localhost:5000/api/listings/${id}/photos`;
+    photos.forEach((photo) => {
+      formData.append("photos", photo);
+    });
+
+    const response = await fetch(photoURL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      const pre = body.match(/<pre>([\s\S]*?)<\/pre>/);
+      const message = pre
+        ? pre[1].replace(/<br\s*\/?>/gi, "\n").replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "").trim()
+        : body.trim();
+      throw new Error(message || `Photo upload failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
+
 export async function getListings(filters = {}) {
   const params = new URLSearchParams(filters);
   return request(`/listings?${params.toString()}`);
@@ -43,17 +73,6 @@ export async function updateListing(listingId, updates) {
 // Expects: DELETE /api/listings/:id
 export async function deleteListing(listingId) {
   return request(`/listings/${listingId}`, { method: "DELETE" });
-}
-
-// Expects: POST /api/listings/:id/photos  multipart/form-data, field "photos" (multiple)
-export async function uploadListingPhotos(listingId, files) {
-  const formData = new FormData();
-  for (const file of files) formData.append("photos", file);
-  return request(`/listings/${listingId}/photos`, {
-    method: "POST",
-    body: formData,
-    isFormData: true,
-  });
 }
 
 // Expects: GET /api/listings/mine  (current seller's own listings)
