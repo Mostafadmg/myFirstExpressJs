@@ -145,8 +145,10 @@ brand-new, much larger project.
 - **`frontend/`** — a React (Vite) app, already built and delivered as a UI
   **placeholder layer**, build-verified (`npm run build` succeeds, 63 source
   files). It is intentionally ahead of the backend.
-- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-05).
-  `package.json`: express ^5.2.1, pg ^8.23.0, multer, cors, nodemon.
+- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-06).
+  ESM now: `package.json` has `"type": "module"`; `db.js` uses `import pg from "pg"`
+  and `export const pool`. Dependencies unchanged: express ^5.2.1, pg ^8.23.0,
+  multer, cors, nodemon. Dev script: `node --watch --env-file=.env index.js`.
   **`backend/db/schema.sql`**: `users`, `categories` (with `slug`), `listings`,
   `listing_photos`, `comments` — all use `INTEGER GENERATED ALWAYS AS IDENTITY`
   PKs; FKs are integer; `listing_photos.file_path` is relative to `photos/`.
@@ -155,51 +157,81 @@ brand-new, much larger project.
   then `backend/db/seed.sql`.
   **`backend/photos/listings/`**: 28 seed JPGs named `{listing-slug}-{01|02}.jpg`
   (e.g. `walnut-headphone-stand-01.jpg`); DB stores `listings/walnut-headphone-stand-01.jpg`.
-  **Routes built:** CORS, `express.json()`, static `/photos`, `POST /api/listings`
-  (WIP — still passes category slug into integer FK, needs slug→id lookup),
-  `GET /api/listings/:id` (works — joins categories + listing_photos, returns
-  photoUrl/photos[]), `POST /api/listings/:id/photos` (multer + listing_photos insert).
-  **`GET /api/health`**: broken — references undefined `result`; fix assigned later.
-  **Routes NOT built yet:** `GET /api/listings` (IN PROGRESS — see active lesson),
-  `GET /api/categories`, comments/reviews reads, auth, cart, etc.
-  Frontend `USE_PLACEHOLDER_API = true` still — home feed uses real backend only
-  because `getListings()` in `listingsApi.js` bypasses `request()` with direct
-  `fetch` (same pattern as `getListingById`). Do NOT flip global placeholder off
-  until other resources are ready.
+  **Layout:** `backend/index.js` only creates the app, CORS (`origin`
+  `http://localhost:5173`), `express.json()`, static `/photos`, mounts
+  `listingsRouter` at `/api/listings`, and listens on `PORT` (default 5000).
+  Route table is `backend/routes/listings.js` (multer lives here). Handlers are
+  `backend/controllers/listingsController.js`.
+  **Routes built:**
+  `POST /api/listings` (`createListing`) — WIP, still writes `req.body.category`
+  straight into integer `category_id`; slug→id lookup not done.
+  `GET /api/listings` (`getListings`) — paginated home-feed cards work, including
+  the category-slug filter. See active lesson for what is still unread by SQL.
+  `GET /api/listings/:id` (`getListingById`) — joins categories + listing_photos,
+  returns `photoUrl` / `photos[]`.
+  `POST /api/listings/:id/photos` (`uploadListingPhotos`) — multer +
+  `listing_photos` insert.
+  **`GET /api/health` was removed** when the handlers left `index.js`. It was
+  already broken (`result` was undefined). Do not put it back unless he asks;
+  it is not the next lesson.
+  **Routes NOT built yet:** `GET /api/categories`, comments/reviews reads, auth,
+  cart, etc.
+  Frontend `USE_PLACEHOLDER_API = true` still — home feed uses the real backend
+  only because `getListings()` in `listingsApi.js` bypasses `request()` with
+  direct `fetch` (same pattern as `getListingById`). The category dropdown
+  still comes from the placeholder via `getCategories()`. Do NOT flip the
+  global placeholder off until other resources are ready.
   **Decision (2026-09-24):** no hard-coded arrays — Postgres only, one API at a time.
-  Planned order unchanged: categories GET → finish listings list → comments reads → …
+  Next after the remaining list filters: `GET /api/categories`, then comments reads.
   Auth still deliberately later.
 
-### Active lesson (paused 2026-10-05): `GET /api/listings` — home feed from DB
+### Active lesson (paused 2026-10-06): finish filters on `GET /api/listings`
 
-**Goal:** Home page (`HomeFeedPage.jsx`) loads cards from Postgres, not placeholder.
+**Goal:** Home page (`HomeFeedPage.jsx`) loads cards from Postgres. Unfiltered
+pages and the category dropdown's slug already do. Search text, price range,
+and sort do not.
 
-**Frontend flow (taught, mostly done):**
-- `HomeFeedPage` merges `{ ...filters, page, limit: pageSize }` and calls `getListings()`.
-- `filters` object keys come from FilterPanel (`category`, `minPrice`, `maxPrice`, `sort`)
-  and SearchBar (`q`). `page`/`limit` are separate pagination state.
-- `getListings(filters = {})` uses `URLSearchParams(filters)` → query string on GET.
-- `listingsApi.js` `getListings` now uses direct `fetch` to Express (not placeholder).
+**Frontend (learner wrote this; it is in the repo):**
+- The address bar is the source of truth. `HomeFeedPage` uses `useSearchParams`.
+  Keys written to the URL: `q`, `category`, `minPrice`, `maxPrice`, `sort`, `page`.
+- `getListings({ ...filters, page, limit: DEFAULT_PAGE_SIZE })` still turns that
+  object into a query string with `URLSearchParams`.
+- `SearchBar` takes a `query` prop and refills the input when the URL changes
+  (back/forward, shared link).
+- Price-only edits `replace` the current history entry. Category, sort, and
+  search push a new entry. Page 1 is omitted from the URL.
+- The listings `useEffect` sets `ignore = true` on cleanup so a slow response
+  cannot overwrite a newer one.
+- `listingsApi.js` `getListings` uses direct `fetch` to Express (not placeholder).
 
-**Backend route:** `app.get("/api/listings")` in `backend/index.js` — **incomplete**.
+**Backend:** `getListings` in `backend/controllers/listingsController.js`.
 
 Steps completed by learner (with tutor):
 1. ✅ Read `page`, `limit` from `req.query`; compute `offset = (page - 1) * limit`.
-2. ✅ `COUNT(*)::int AS total` — taught `::int` cast, `result.rows[0].total`, why not
-   fetch-all-then-filter-in-JS.
+2. ✅ `COUNT(*)::int AS total` — `::int` cast, `result.rows[0].total`.
+3. ✅ Main `SELECT`: `JOIN categories`, `LEFT JOIN listing_photos` with
+   `sort_order = 0`, `LIMIT`/`OFFSET`, map each row to
+   `{ id, title, priceInCents, type, category, photoUrl, averageRating: 0 }`,
+   `res.json({ listings, total, page, totalPages })`.
+4. ✅ Category filter: when `req.query.category` is set, both the list query and
+   the count use `WHERE categories.slug = $1` with a separate `params` array.
+   When it is absent, the unfiltered queries run. Two query strings, not
+   string-concatenated SQL.
 
 **Next step for learner (do NOT skip ahead):**
-3. Main `SELECT` with JOINs (`categories`, `listing_photos` where `sort_order = 0`),
-   `LIMIT $1 OFFSET $2`, map rows to `{ id, title, priceInCents, category, type,
-   photoUrl, averageRating: 0 }`, then `res.json({ listings, total, page, totalPages })`.
-   Teach one step at a time; he writes the SQL; tutor reviews.
+`q`, `minPrice`, `maxPrice`, and `sort` are already read off `req.query` and
+then unused. Add them to the SQL one at a time (he writes it; tutor reviews).
+Suggested order: `q` (title/description match), then `minPrice`/`maxPrice`
+(compare to `listings.price`, which is cents), then `sort`. Keep parameterization.
+After those four work, the next route is `GET /api/categories` so the filter
+dropdown can leave the placeholder API.
 
-**Later steps (not now):** SQL filters for `category`, `q`, `minPrice`, `maxPrice`, `sort`;
-then `GET /api/categories` for the filter dropdown.
-
-**Concepts covered this session:** numeric auto-increment IDs vs text slugs; `listing_photos`
-table; photo file naming; `req.query` vs `req.params`; pagination offset; `pool.query`
-returns `result.rows` (array of objects); spread `{ ...filters, page, limit }` on frontend.
+**Concepts covered since the 2026-10-05 pause:** ESM `import`/`export` and
+`"type": "module"` (what `require` / `module.exports` were doing); a router
+file vs a controller file vs `index.js` only mounting them; `JOIN` vs
+`LEFT JOIN` for the thumbnail; mapping a DB row into the card shape the
+React grid already expects; choosing a different parameterized query when a
+filter is present; URL search params as the home-feed source of truth.
 - **Domain, chosen deliberately:** a marketplace (physical products with
   stock) + bookable services (availability slots, like appointments) + a
   light social layer (user profiles with avatar/cover photo, follow, reviews,

@@ -145,15 +145,20 @@ brand-new, much larger project.
 - **`frontend/`** — a React (Vite) app, already built and delivered as a UI
   **placeholder layer**, build-verified (`npm run build` succeeds, 63 source
   files). It is intentionally ahead of the backend.
-- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-05).
-  See `.cursorrules` "Current state" for full handoff. Summary: schema has
-  users/categories/listings/listing_photos/comments (integer IDs); seed has
-  14 listings + 28 photos; photo files in `backend/photos/listings/`.
-  Routes: `GET /api/listings/:id` and photo upload work; **`GET /api/listings`
-  IN PROGRESS** (steps 1–2 done: req.query page/limit/offset + COUNT; step 3
-  next: JOIN SELECT + res.json). `GET /api/categories` not built.
-  `USE_PLACEHOLDER_API` still true; `getListings`/`getListingById` bypass it
-  via direct fetch in `listingsApi.js`. Continue one-step-at-a-time mentoring.
+- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-06).
+  See `.cursorrules` "Current state" for the full handoff. Summary: backend is
+  ESM (`"type": "module"`). `index.js` only mounts middleware and
+  `routes/listings.js`; handlers live in `controllers/listingsController.js`.
+  Schema unchanged (users/categories/listings/listing_photos/comments, integer
+  IDs); seed is 14 listings + 28 photos. `GET /api/listings` returns paginated
+  cards and filters by category slug. **Paused here:** `q`, `minPrice`,
+  `maxPrice`, and `sort` are read from `req.query` and not used in SQL — add
+  those one at a time, then `GET /api/categories`. `POST /api/listings` still
+  writes the category slug into the integer FK. `GET /api/health` was removed
+  with the split; do not restore it as the next task. `USE_PLACEHOLDER_API`
+  still true; `getListings`/`getListingById` bypass it via direct fetch.
+  Home feed filters now live in the URL (`useSearchParams`). Continue
+  one-step-at-a-time mentoring.
 - **Domain, chosen deliberately:** a marketplace (physical products with
   stock) + bookable services (availability slots, like appointments) + a
   light social layer (user profiles with avatar/cover photo, follow, reviews,

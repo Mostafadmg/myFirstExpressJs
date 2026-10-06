@@ -1,0 +1,7 @@
+{
+  "sqlFormatAndHighlight.dialect": "postgresql",
+  "sqlFormatAndHighlight.formatOnSave": true,
+  "sqlFormatAndHighlight.keywordCase": "upper",
+  "sqlFormatAndHighlight.indentStyle": "standard",
+  "sqlFormatAndHighlight.tabWidth": 2
+}
