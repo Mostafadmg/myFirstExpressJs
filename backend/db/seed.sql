@@ -24,7 +24,7 @@ VALUES
 ON CONFLICT (slug) DO UPDATE
 SET name = EXCLUDED.name;
 
-TRUNCATE TABLE comments, listing_photos, listings RESTART IDENTITY;
+TRUNCATE TABLE reviews, comments, listing_photos, listings RESTART IDENTITY;
 
 INSERT INTO listings (seller_id, title, description, price, type, category_id, stock)
 SELECT
@@ -120,5 +120,68 @@ FROM (VALUES
   ('Travel speaker', 'Sana Rahman', 'USB-C charging is handy. How many hours does the battery last?'),
   ('Travel speaker', 'Amina Yusuf', 'Small enough for a bag but still loud enough for the kitchen sounds ideal.')
 ) AS sample(listing_title, author_name, body)
+JOIN listings AS listing ON listing.title = sample.listing_title
+JOIN users AS author ON author.name = sample.author_name;
+
+
+INSERT INTO reviews (listing_id, user_id, rating, body)
+SELECT listing.id, author.id, sample.rating, sample.body
+FROM (VALUES
+  ('Walnut headphone stand', 'Lina Ortega', 5, 'Sits exactly where I wanted it. The grain is the whole point.'),
+  ('Walnut headphone stand', 'Owen Price', 4, 'Heavier than the photo suggests, in a good way.'),
+  ('Walnut headphone stand', 'Jules Martin', 5, 'The cradle is wide enough for my over-ear pair.'),
+
+  ('Studio headphones', 'Amina Yusuf', 4, 'Closed enough that the rest of the flat cannot hear the mix.'),
+  ('Studio headphones', 'Sana Rahman', 5, 'The spare cable mattered the first week.'),
+  ('Studio headphones', 'Idris Cole', 3, 'Comfortable for an hour. The headband pressed after that.'),
+
+  ('Linen field jacket', 'Lina Ortega', 5, 'Undyed linen, and it already looks better than the day it arrived.'),
+  ('Linen field jacket', 'Jules Martin', 4, 'Room for a jumper. The pockets sit where my hands actually are.'),
+  ('Linen field jacket', 'Owen Price', 4, 'Wrinkles immediately, which is the linen doing its job.'),
+
+  ('Ceramic pour-over set', 'Amina Yusuf', 5, 'The dripper and the server belong together on the counter.'),
+  ('Ceramic pour-over set', 'Sana Rahman', 4, 'Fits a standard paper filter. The speckled glaze is quiet.'),
+  ('Ceramic pour-over set', 'Idris Cole', 5, 'Coffee tastes the same. The table looks better.'),
+
+  ('Leather weekender', 'Owen Price', 5, 'Brass hardware, and the leather already darkened at the handle.'),
+  ('Leather weekender', 'Lina Ortega', 4, 'A weekend and a book fit. A laptop is a squeeze.'),
+  ('Leather weekender', 'Amina Yusuf', 5, 'It went under the seat on a short flight.'),
+
+  ('Monstera in a clay pot', 'Jules Martin', 5, 'The plant arrived upright and the pot is the part I notice.'),
+  ('Monstera in a clay pot', 'Sana Rahman', 4, 'Taller than I expected once the pot is counted.'),
+  ('Monstera in a clay pot', 'Owen Price', 3, NULL),
+
+  ('Field watch', 'Idris Cole', 4, 'The face stays quiet. The pouch came in the box.'),
+  ('Field watch', 'Lina Ortega', 5, 'Brushed steel, and it does not shout from across the room.'),
+  ('Field watch', 'Amina Yusuf', 4, 'The strap was stiff for two days, then it settled.'),
+
+  ('Court sneakers', 'Sana Rahman', 5, 'True to size. The gum sole is the part people comment on.'),
+  ('Court sneakers', 'Jules Martin', 3, NULL),
+  ('Court sneakers', 'Owen Price', 4, 'Worn in by the end of the first week, not ruined.'),
+
+  ('Oak desk lamp', 'Amina Yusuf', 5, 'The base stays put when I move the shade.'),
+  ('Oak desk lamp', 'Lina Ortega', 4, 'Warm bulb included, and it is actually warm.'),
+  ('Oak desk lamp', 'Idris Cole', 4, 'Lives on a bedside table now. The shade is linen, not paper.'),
+
+  ('Saturday knife sharpening', 'Jules Martin', 5, 'Left with four knives that actually cut tomatoes.'),
+  ('Saturday knife sharpening', 'Owen Price', 5, 'An hour at the bench, and he explained the angle.'),
+  ('Saturday knife sharpening', 'Sana Rahman', 4, 'Booked ahead. Different blade lengths were fine.'),
+
+  ('Living-room styling hour', 'Amina Yusuf', 4, 'We moved what I already owned. The room got quieter.'),
+  ('Living-room styling hour', 'Lina Ortega', 5, 'One hour, one room, and a short list I have not bought yet.'),
+  ('Living-room styling hour', 'Idris Cole', 3, 'Useful. I wanted more time on the storage wall.'),
+
+  ('Film camera lesson', 'Owen Price', 5, 'Loaded a roll for the first time and metered by eye.'),
+  ('Film camera lesson', 'Jules Martin', 4, 'I brought my own camera. Twelve frames, most of them meant.'),
+  ('Film camera lesson', 'Sana Rahman', 5, 'Beginner-friendly. The lesson started with loading the film.'),
+
+  ('Clay bowl throwing', 'Lina Ortega', 4, 'A first class. The bowl is drying at home.'),
+  ('Clay bowl throwing', 'Amina Yusuf', 5, 'About an hour on the wheel, then the bowl was mine.'),
+  ('Clay bowl throwing', 'Idris Cole', 4, 'Stoneware, and the tutor caught the wobble early.'),
+
+  ('Travel speaker', 'Sana Rahman', 4, 'USB-C, and it lasted a Saturday in the kitchen.'),
+  ('Travel speaker', 'Jules Martin', 5, 'Small enough for the bag. Loud enough that we stopped the other speaker.'),
+  ('Travel speaker', 'Owen Price', 4, 'The battery made it through dinner and the walk home.')
+) AS sample(listing_title, author_name, rating, body)
 JOIN listings AS listing ON listing.title = sample.listing_title
 JOIN users AS author ON author.name = sample.author_name;

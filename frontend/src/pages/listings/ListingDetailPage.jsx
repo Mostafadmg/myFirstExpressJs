@@ -8,7 +8,7 @@ import { addFavorite } from "../../api/favoritesApi.js";
 import { LoadingSpinner } from "../../components/common/LoadingSpinner.jsx";
 import { ErrorMessage } from "../../components/common/ErrorMessage.jsx";
 import { RatingStars } from "../../components/common/RatingStars.jsx";
-import { formatCurrency } from "../../utils/formatters.js";
+import { formatCurrency, formatDateTime } from "../../utils/formatters.js";
 import { LISTING_TYPE } from "../../utils/constants.js";
 import { useAuth } from "../../hooks/useAuth.js";
 
@@ -36,6 +36,9 @@ export function ListingDetailPage() {
         setComments(commentsData);
         setPhotoIndex(0);
         setStatus("success");
+        console.log("commentsData:", commentsData);
+        console.log("reviewsData:", reviewsData);
+        console.log("listingData:", listingData);
       })
       .catch((err) => {
         setError(err);
@@ -54,8 +57,15 @@ export function ListingDetailPage() {
   async function handleReviewSubmit(e) {
     e.preventDefault();
     const form = new FormData(e.target);
-    const review = await createReview(id, Number(form.get("rating")), form.get("comment"));
-    setReviews((prev) => [...prev, review]);
+    const review = await createReview(
+      id,
+      Number(form.get("rating")),
+      form.get("comment"),
+    );
+    setReviews((prev) => [
+      ...prev,
+      { ...review, authorName: currentUser?.name, userId: review.userId },
+    ]);
     e.target.reset();
   }
 
@@ -67,23 +77,50 @@ export function ListingDetailPage() {
     e.target.reset();
   }
 
-  if (status === "loading") return <div className="page"><LoadingSpinner /></div>;
-  if (status === "error") return <div className="page"><ErrorMessage error={error} /></div>;
+  if (status === "loading")
+    return (
+      <div className="page">
+        <LoadingSpinner />
+      </div>
+    );
+  if (status === "error")
+    return (
+      <div className="page">
+        <ErrorMessage error={error} />
+      </div>
+    );
 
   const initial = (listing.title || "?").trim().charAt(0).toUpperCase();
-  const photos = listing.photos?.length ? listing.photos : listing.photoUrl ? [listing.photoUrl] : [];
+  const photos = listing.photos?.length
+    ? listing.photos
+    : listing.photoUrl
+      ? [listing.photoUrl]
+      : [];
   const activePhoto = photos[photoIndex] || photos[0];
+
+  const userAlreadyReviewed =
+    currentUser &&
+    reviews.some(
+      (review) =>
+        review.authorName === currentUser.name ||
+        (review.userId != null &&
+          String(review.userId) === String(currentUser.id)),
+    );
 
   return (
     <div className="page">
-      <Link to="/" className="back-link">&larr; Back to browse</Link>
+      <Link to="/" className="back-link">
+        &larr; Back to browse
+      </Link>
       <div className="detail">
         <div>
           <div className="detail-media">
             {activePhoto ? (
               <img src={activePhoto} alt={listing.title} />
             ) : (
-              <div className="detail-placeholder"><span>{initial}</span></div>
+              <div className="detail-placeholder">
+                <span>{initial}</span>
+              </div>
             )}
           </div>
           {photos.length > 1 && (
@@ -102,7 +139,9 @@ export function ListingDetailPage() {
           )}
         </div>
         <div className="card detail-panel">
-          <p className="eyebrow">{[listing.category, listing.type].filter(Boolean).join(" · ")}</p>
+          <p className="eyebrow">
+            {[listing.category, listing.type].filter(Boolean).join(" · ")}
+          </p>
           <h1>{listing.title}</h1>
           {listing.sellerId && (
             <Link to={`/users/${listing.sellerId}`} className="seller-link">
@@ -115,19 +154,27 @@ export function ListingDetailPage() {
 
           {currentUser && listing.type === LISTING_TYPE.PRODUCT && (
             <div className="row">
-              <button className="btn" onClick={handleAddToCart}>Add to cart</button>
-              <button className="btn secondary" onClick={handleFavorite}>Save to favorites</button>
+              <button className="btn" onClick={handleAddToCart}>
+                Add to cart
+              </button>
+              <button className="btn secondary" onClick={handleFavorite}>
+                Save to favorites
+              </button>
             </div>
           )}
 
           {currentUser && listing.type === LISTING_TYPE.SERVICE && (
-            <Link to={`/bookings/new?listingId=${id}`} className="btn">Check availability &amp; book</Link>
+            <Link to={`/bookings/new?listingId=${id}`} className="btn">
+              Check availability &amp; book
+            </Link>
           )}
         </div>
       </div>
 
       <section className="section-block">
-        <h3>Reviews <RatingStars rating={listing.averageRating} /></h3>
+        <h3>
+          Reviews <RatingStars rating={listing.averageRating} />
+        </h3>
         <div className="stack">
           {reviews.map((review) => (
             <div key={review.id} className="card">
@@ -136,7 +183,7 @@ export function ListingDetailPage() {
             </div>
           ))}
         </div>
-        {currentUser && (
+        {currentUser && !userAlreadyReviewed && (
           <form onSubmit={handleReviewSubmit} className="card">
             <div className="field">
               <label>Rating (1-5)</label>
@@ -146,7 +193,9 @@ export function ListingDetailPage() {
               <label>Comment</label>
               <textarea name="comment" rows="3" />
             </div>
-            <button className="btn" type="submit">Submit review</button>
+            <button className="btn" type="submit">
+              Submit review
+            </button>
           </form>
         )}
       </section>
@@ -155,13 +204,20 @@ export function ListingDetailPage() {
         <h3>Comments</h3>
         <div className="stack">
           {comments.map((comment) => (
-            <p key={comment.id} className="card muted">{comment.text}</p>
+            <div key={comment.id} className="card muted">
+              <p className="eyebrow">
+                {comment.authorName} · {formatDateTime(comment.createdAt)}
+              </p>
+              <p>{comment.text}</p>
+            </div>
           ))}
         </div>
         {currentUser && (
           <form onSubmit={handleCommentSubmit} className="row composer">
             <input name="text" placeholder="Add a comment..." required />
-            <button className="btn secondary" type="submit">Post</button>
+            <button className="btn secondary" type="submit">
+              Post
+            </button>
           </form>
         )}
       </section>

@@ -18,10 +18,26 @@ export async function createListing(req, res) {
           price,
           type,
           category_id,
-          stock
+          stock,
+          seller_id
         )
       VALUES
-        ($1, $2, $3, $4, $5, $6)
+        (
+          $1,
+          $2,
+          $3,
+          $4,
+          (
+            SELECT
+              id
+            FROM
+              categories
+            WHERE
+              slug = $5
+          ),
+          $6,
+          $7
+        )
       RETURNING
         *
     `,
@@ -32,6 +48,8 @@ export async function createListing(req, res) {
       req.body.type,
       req.body.category,
       req.body.stock,
+      // TODO: replace with logged-in user's id after auth
+      1,
     ],
   );
   const listing = result.rows[0];
@@ -47,70 +65,82 @@ export async function getListings(req, res) {
   const q = req.query.q || null;
   const minPrice = req.query.minPrice || null;
   const maxPrice = req.query.maxPrice || null;
-  const sort = req.query.sort || null;
+  let sort = req.query.sort || null;
+  const minPriceCents = minPrice ? Number(minPrice) * 100 : null;
+  const maxPriceCents = maxPrice ? Number(maxPrice) * 100 : null;
+  let orderBy = "listings.created_at DESC";
 
-  let sql;
-  let params;
-  let countSql;
-  let countParams;
-
-  if (category) {
-    sql = `--sql
-      SELECT
-        listings.id,
-        listings.title,
-        listings.price AS "priceInCents",
-        listings.type,
-        categories.name AS category,
-        listing_photos.file_path
-      FROM
-        listings
-        JOIN categories ON categories.id = listings.category_id
-        LEFT JOIN listing_photos ON listing_photos.listing_id = listings.id
-        AND listing_photos.sort_order = 0
-      WHERE
-        categories.slug = $1
-      LIMIT
-        $2
-      OFFSET
-        $3
-    `;
-    params = [category, limit, offset];
-    countSql = `--sql
-      SELECT
-        COUNT(*)::int AS total
-      FROM
-        listings
-        JOIN categories ON categories.id = listings.category_id
-      WHERE
-        categories.slug = $1
-    `;
-    countParams = [category];
-  } else {
-    sql = `--sql
-      SELECT
-        listings.id,
-        listings.title,
-        listings.price AS "priceInCents",
-        listings.type,
-        categories.name AS category,
-        listing_photos.file_path
-      FROM
-        listings
-        JOIN categories ON categories.id = listings.category_id
-        LEFT JOIN listing_photos ON listing_photos.listing_id = listings.id
-        AND listing_photos.sort_order = 0
-      LIMIT
-        $1
-      OFFSET
-        $2
-    `;
-    params = [limit, offset];
-    countSql = "SELECT COUNT(*)::int AS total FROM listings";
-    countParams = [];
+  if (sort === "price_asc") {
+    orderBy = "listings.price ASC";
+  } else if (sort === "price_desc") {
+    orderBy = "listings.price DESC";
+  } else if (sort === "newest") {
+    orderBy = "listings.created_at DESC";
+  } else if (sort === "rating_desc") {
+    orderBy = '"averageRating" DESC NULLS LAST';
   }
+  const filterParams = [category, q ? `%${q}%` : null, minPriceCents, maxPriceCents];
 
-  const listResults = await pool.query(sql, params);
+  const whereSql = `--sql
+    WHERE
+      (
+        $1::text IS NULL
+        OR categories.slug = $1
+      )
+      AND (
+        $2::text IS NULL
+        OR listings.title ILIKE $2
+        OR listings.description ILIKE $2
+      )
+      AND (
+        $3::integer IS NULL
+        OR listings.price >= $3
+      )
+      AND (
+        $4::integer IS NULL
+        OR listings.price <= $4
+      )
+  `;
+
+  const sql = `--sql
+    SELECT
+      listings.id,
+      listings.title,
+      listings.price AS "priceInCents",
+      (
+        SELECT
+          AVG(rating)
+        FROM
+          reviews
+        WHERE
+          reviews.listing_id = listings.id
+      ) AS "averageRating",
+      listings.type,
+      categories.name AS category,
+      listing_photos.file_path
+    FROM
+      listings
+      JOIN categories ON categories.id = listings.category_id
+      LEFT JOIN listing_photos ON listing_photos.listing_id = listings.id
+      AND listing_photos.sort_order = 0 ${whereSql}
+    ORDER BY
+      ${orderBy},
+      listings.id DESC
+    LIMIT
+      $5
+    OFFSET
+      $6
+  `;
+
+  const countSql = `--sql
+    SELECT
+      COUNT(*)::int AS total
+    FROM
+      listings
+      JOIN categories ON categories.id = listings.category_id ${whereSql}
+  `;
+
+  const listResults = await pool.query(sql, [...filterParams, limit, offset]);
   const listings = listResults.rows.map((row) => ({
     id: row.id,
     title: row.title,
@@ -118,10 +148,10 @@ export async function getListings(req, res) {
     type: row.type,
     category: row.category,
     photoUrl: row.file_path ? photoUrl(row.file_path) : null,
-    averageRating: 0,
+    averageRating: Number(row.averageRating) || 0,
   }));
 
-  const countResult = await pool.query(countSql, countParams);
+  const countResult = await pool.query(countSql, filterParams);
   const total = countResult.rows[0].total;
 
   res.json({ listings, total, page, totalPages: Math.ceil(total / limit) });
@@ -221,4 +251,52 @@ export async function uploadListingPhotos(req, res) {
   }
 
   res.status(201).json({ photos: saved });
+}
+
+export async function getCommentsForListing(req, res) {
+  const id = req.params.id;
+
+  const sql = `--sql
+    SELECT
+      comments.listing_id,
+      comments.id,
+      comments.body AS text,
+      users.name AS "authorName",
+      comments.created_at AS "createdAt"
+    FROM
+      comments
+      JOIN users ON users.id = comments.user_id
+    WHERE
+      comments.listing_id = $1
+    ORDER BY
+      comments.created_at
+  `;
+
+  const result = await pool.query(sql, [id]);
+
+  const comments = result.rows;
+  res.json(comments);
+}
+
+export async function getReviewsForListing(req, res) {
+  const id = req.params.id;
+
+  const sql = `--sql
+    SELECT
+      reviews.id,
+      reviews.user_id AS "userId",
+      reviews.rating,
+      reviews.body AS comment,
+      users.name AS "authorName"
+    FROM
+      reviews
+      JOIN users ON users.id = reviews.user_id
+    WHERE
+      reviews.listing_id = $1
+    ORDER BY
+      reviews.created_at
+  `;
+
+  const result = await pool.query(sql, [id]);
+  res.json(result.rows);
 }

@@ -1,11 +1,13 @@
 -- Development schema for Marketspace.
 -- Drops and recreates all tables. Run this first, then seed.sql.
 
+DROP TABLE IF EXISTS reviews;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS listing_photos;
 DROP TABLE IF EXISTS listings;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS users;
+
 
 CREATE TABLE users (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -46,4 +48,14 @@ CREATE TABLE comments (
   user_id INTEGER NOT NULL REFERENCES users (id),
   body TEXT NOT NULL CHECK (length(trim(body)) > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE reviews (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  listing_id INTEGER NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users (id),
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  body TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (listing_id, user_id)
 );

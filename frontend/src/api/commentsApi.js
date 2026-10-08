@@ -1,8 +1,20 @@
 import { request } from "./config.js";
 
+const url = "http://localhost:5000/api/listings";
+
 // Expects: GET /api/listings/:listingId/comments
 export async function getCommentsForListing(listingId) {
-  return request(`/listings/${listingId}/comments`);
+  try {
+    const response = await fetch(`${url}/${listingId}/comments`);
+
+    if (!response.ok) {
+      throw new Error("Comments Could not be fetch from the API");
+    }
+    return response.json();
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 // Expects: POST /api/listings/:listingId/comments  body: { text }

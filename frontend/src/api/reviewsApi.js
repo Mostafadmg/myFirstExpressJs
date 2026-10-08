@@ -1,8 +1,13 @@
-import { request } from "./config.js";
+import { API_BASE_URL, request } from "./config.js";
 
-// Expects: GET /api/listings/:listingId/reviews
+// GET /api/listings/:listingId/reviews from Express, not the placeholder list.
 export async function getReviewsForListing(listingId) {
-  return request(`/listings/${listingId}/reviews`);
+  const response = await fetch(`${API_BASE_URL}/listings/${listingId}/reviews`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message || "Failed to fetch reviews.");
+  }
+  return response.json();
 }
 
 // Expects: POST /api/listings/:listingId/reviews  body: { rating, comment }

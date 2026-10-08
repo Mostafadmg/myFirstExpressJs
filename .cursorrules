@@ -145,93 +145,60 @@ brand-new, much larger project.
 - **`frontend/`** — a React (Vite) app, already built and delivered as a UI
   **placeholder layer**, build-verified (`npm run build` succeeds, 63 source
   files). It is intentionally ahead of the backend.
-- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-06).
-  ESM now: `package.json` has `"type": "module"`; `db.js` uses `import pg from "pg"`
-  and `export const pool`. Dependencies unchanged: express ^5.2.1, pg ^8.23.0,
-  multer, cors, nodemon. Dev script: `node --watch --env-file=.env index.js`.
-  **`backend/db/schema.sql`**: `users`, `categories` (with `slug`), `listings`,
-  `listing_photos`, `comments` — all use `INTEGER GENERATED ALWAYS AS IDENTITY`
-  PKs; FKs are integer; `listing_photos.file_path` is relative to `photos/`.
-  **`backend/db/seed.sql`**: 8 users, 5 categories, 14 listings, 28 photo
-  rows, 28 comments. Re-run: `psql -d marketspace -f backend/db/schema.sql`
-  then `backend/db/seed.sql`.
-  **`backend/photos/listings/`**: 28 seed JPGs named `{listing-slug}-{01|02}.jpg`
-  (e.g. `walnut-headphone-stand-01.jpg`); DB stores `listings/walnut-headphone-stand-01.jpg`.
-  **Layout:** `backend/index.js` only creates the app, CORS (`origin`
-  `http://localhost:5173`), `express.json()`, static `/photos`, mounts
-  `listingsRouter` at `/api/listings`, and listens on `PORT` (default 5000).
-  Route table is `backend/routes/listings.js` (multer lives here). Handlers are
-  `backend/controllers/listingsController.js`.
-  **Routes built:**
-  `POST /api/listings` (`createListing`) — WIP, still writes `req.body.category`
-  straight into integer `category_id`; slug→id lookup not done.
-  `GET /api/listings` (`getListings`) — paginated home-feed cards work, including
-  the category-slug filter. See active lesson for what is still unread by SQL.
-  `GET /api/listings/:id` (`getListingById`) — joins categories + listing_photos,
-  returns `photoUrl` / `photos[]`.
-  `POST /api/listings/:id/photos` (`uploadListingPhotos`) — multer +
-  `listing_photos` insert.
-  **`GET /api/health` was removed** when the handlers left `index.js`. It was
-  already broken (`result` was undefined). Do not put it back unless he asks;
-  it is not the next lesson.
-  **Routes NOT built yet:** `GET /api/categories`, comments/reviews reads, auth,
-  cart, etc.
-  Frontend `USE_PLACEHOLDER_API = true` still — home feed uses the real backend
-  only because `getListings()` in `listingsApi.js` bypasses `request()` with
-  direct `fetch` (same pattern as `getListingById`). The category dropdown
-  still comes from the placeholder via `getCategories()`. Do NOT flip the
-  global placeholder off until other resources are ready.
-  **Decision (2026-09-24):** no hard-coded arrays — Postgres only, one API at a time.
-  Next after the remaining list filters: `GET /api/categories`, then comments reads.
-  Auth still deliberately later.
+- **`backend/`** — Express + PostgreSQL in progress (updated 2026-10-08).
+  ESM: `"type": "module"`; `db.js` exports `pool`. Dev: `node --watch --env-file=.env index.js`
+  from `backend/` (port 5000). **Both** `backend` and `frontend` dev servers must run
+  for listing detail and home feed against Postgres.
+  **`backend/db/schema.sql`**: `users`, `categories`, `listings`, `listing_photos`,
+  `comments`, **`reviews`** (rating 1–5, optional `body`, `UNIQUE (listing_id, user_id)`).
+  Integer identity PKs; `listing_photos.file_path` relative to `photos/`.
+  **`backend/db/seed.sql`**: 8 users, 5 categories, 14 listings, 28 photos, 28 comments,
+  **42 review rows** (3 per listing). `TRUNCATE` order includes `reviews` before listings.
+  Re-run: `psql -d marketspace -f backend/db/schema.sql` then `backend/db/seed.sql`.
+  **Layout:** `index.js` mounts CORS (`http://localhost:5173`), `express.json()`, static
+  `/photos`, `listingsRouter` at `/api/listings`. Routes in `routes/listings.js`; handlers
+  in `controllers/listingsController.js`.
+  **Routes built (listings only):**
+  `GET /api/listings` — paginated cards; filters **category slug** and **search `q`**
+  (`ILIKE` on title/description via shared `WHERE` with `$1::text IS NULL OR …` pattern).
+  **`minPrice`, `maxPrice`, `sort`** still read from `req.query` but **not in SQL yet**.
+  `averageRating` on cards/detail still hard-coded `0`.
+  `GET /api/listings/:id` — detail + photo URLs.
+  `POST /api/listings` — WIP (category slug → integer FK not fixed).
+  `POST /api/listings/:id/photos` — multer + `listing_photos`.
+  `GET /api/listings/:id/comments` — `JOIN users`; JSON: `id`, `text`, `authorName`, `createdAt`.
+  `GET /api/listings/:id/reviews` — `JOIN users`; JSON: `id`, `userId`, `rating`, `comment`, `authorName`.
+  **Not built:** `POST`/`DELETE` comments & reviews, `GET /api/categories`, auth, cart, etc.
+  **`GET /api/health`** removed with router split; do not restore unless asked.
+  **Frontend vs placeholder (`USE_PLACEHOLDER_API = true` in `config.js`):**
+  Direct `fetch` to Express (bypass placeholder): `getListings`, `getListingById`,
+  `getCommentsForListing`, `getReviewsForListing` (uses `API_BASE_URL`).
+  Still placeholder via `request()`: categories dropdown, auth, cart, **POST** comment/review,
+  most other `api/*.js` files. Do **not** flip global placeholder off until those exist.
+  **`ListingDetailPage`:** `Promise.all` loads listing + reviews + comments from Express;
+  comments show author + datetime; review form hidden if current user's name (or `userId`
+  when ids align) matches an existing review. Placeholder login is still **Mostafa** (`u1`);
+  Postgres user ids/names differ until real auth.
 
-### Active lesson (paused 2026-10-06): finish filters on `GET /api/listings`
+### Active lesson (paused 2026-10-08): home-feed price/sort, then categories
 
-**Goal:** Home page (`HomeFeedPage.jsx`) loads cards from Postgres. Unfiltered
-pages and the category dropdown's slug already do. Search text, price range,
-and sort do not.
+**Goal:** Finish `GET /api/listings` filters, then `GET /api/categories`.
 
-**Frontend (learner wrote this; it is in the repo):**
-- The address bar is the source of truth. `HomeFeedPage` uses `useSearchParams`.
-  Keys written to the URL: `q`, `category`, `minPrice`, `maxPrice`, `sort`, `page`.
-- `getListings({ ...filters, page, limit: DEFAULT_PAGE_SIZE })` still turns that
-  object into a query string with `URLSearchParams`.
-- `SearchBar` takes a `query` prop and refills the input when the URL changes
-  (back/forward, shared link).
-- Price-only edits `replace` the current history entry. Category, sort, and
-  search push a new entry. Page 1 is omitted from the URL.
-- The listings `useEffect` sets `ignore = true` on cleanup so a slow response
-  cannot overwrite a newer one.
-- `listingsApi.js` `getListings` uses direct `fetch` to Express (not placeholder).
+**Done on home feed:** URL filters (`useSearchParams`), category + **`q`** search on backend.
 
-**Backend:** `getListings` in `backend/controllers/listingsController.js`.
+**Next on backend (one at a time, learner writes SQL):**
+1. `minPrice` / `maxPrice` on `listings.price` (cents; frontend sends dollars in URL — match placeholder conversion).
+2. `sort` (`price_asc`, `price_desc`, `newest`; defer `rating_desc` until real `averageRating`).
+3. `GET /api/categories` + wire `getCategories()` to Express.
 
-Steps completed by learner (with tutor):
-1. ✅ Read `page`, `limit` from `req.query`; compute `offset = (page - 1) * limit`.
-2. ✅ `COUNT(*)::int AS total` — `::int` cast, `result.rows[0].total`.
-3. ✅ Main `SELECT`: `JOIN categories`, `LEFT JOIN listing_photos` with
-   `sort_order = 0`, `LIMIT`/`OFFSET`, map each row to
-   `{ id, title, priceInCents, type, category, photoUrl, averageRating: 0 }`,
-   `res.json({ listings, total, page, totalPages })`.
-4. ✅ Category filter: when `req.query.category` is set, both the list query and
-   the count use `WHERE categories.slug = $1` with a separate `params` array.
-   When it is absent, the unfiltered queries run. Two query strings, not
-   string-concatenated SQL.
+**Then (after filters/categories):** `POST /api/listings/:id/comments` and
+`POST /api/listings/:id/reviews` (respect `UNIQUE (listing_id, user_id)`); optional
+`averageRating` aggregate on list/detail; fix `POST /api/listings` category slug lookup.
 
-**Next step for learner (do NOT skip ahead):**
-`q`, `minPrice`, `maxPrice`, and `sort` are already read off `req.query` and
-then unused. Add them to the SQL one at a time (he writes it; tutor reviews).
-Suggested order: `q` (title/description match), then `minPrice`/`maxPrice`
-(compare to `listings.price`, which is cents), then `sort`. Keep parameterization.
-After those four work, the next route is `GET /api/categories` so the filter
-dropdown can leave the placeholder API.
-
-**Concepts covered since the 2026-10-05 pause:** ESM `import`/`export` and
-`"type": "module"` (what `require` / `module.exports` were doing); a router
-file vs a controller file vs `index.js` only mounting them; `JOIN` vs
-`LEFT JOIN` for the thumbnail; mapping a DB row into the card shape the
-React grid already expects; choosing a different parameterized query when a
-filter is present; URL search params as the home-feed source of truth.
+**Concepts covered recently:** nested routes `/:id/comments` vs `/:id`; `req.params.id`;
+`JOIN users` for display names; SQL `body AS text` / quoted `"createdAt"` for JSON shape;
+`Promise.all` + stale state in `.then`; direct `fetch` vs `request()` + placeholder;
+`UNIQUE (listing_id, user_id)` for one review per user per listing.
 - **Domain, chosen deliberately:** a marketplace (physical products with
   stock) + bookable services (availability slots, like appointments) + a
   light social layer (user profiles with avatar/cover photo, follow, reviews,

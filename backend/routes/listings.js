@@ -5,6 +5,8 @@ import {
   getListings,
   getListingById,
   uploadListingPhotos,
+  getCommentsForListing,
+  getReviewsForListing,
 } from "../controllers/listingsController.js";
 
 const router = express.Router();
@@ -41,5 +43,6 @@ router.post("/", createListing);
 router.get("/", getListings);
 router.get("/:id", getListingById);
 router.post("/:id/photos", upload.array("photos", 5), uploadListingPhotos);
-
+router.get("/:id/comments", getCommentsForListing);
+router.get("/:id/reviews", getReviewsForListing);
 export default router;
