@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getListingById, updateListing, deleteListing, uploadListingPhotos } from "../../api/listingsApi.js";
+import {
+  getListingById,
+  updateListing,
+  deleteListing,
+  uploadListingPhotos,
+} from "../../api/listingsApi.js";
 import { PhotoUploader } from "../../components/common/PhotoUploader.jsx";
 import { LoadingSpinner } from "../../components/common/LoadingSpinner.jsx";
 import { ErrorMessage } from "../../components/common/ErrorMessage.jsx";
@@ -11,6 +16,8 @@ export function EditListingPage() {
   const [listing, setListing] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState(null);
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     getListingById(id)
@@ -27,12 +34,22 @@ export function EditListingPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const form = new FormData(e.target);
-    const updated = await updateListing(id, {
-      title: form.get("title"),
-      description: form.get("description"),
-      priceInCents: Math.round(Number(form.get("price")) * 100),
-    });
-    setListing(updated);
+
+    setSaveStatus("saving");
+    setSaveError(null);
+
+    try {
+      const updated = await updateListing(id, {
+        title: form.get("title"),
+        description: form.get("description"),
+        priceInCents: Math.round(Number(form.get("price")) * 100),
+      });
+      setListing(updated);
+      setSaveStatus("saved");
+    } catch (err) {
+      setSaveError(err);
+      setSaveStatus("error");
+    }
   }
 
   async function handleDelete() {
@@ -40,8 +57,18 @@ export function EditListingPage() {
     navigate("/");
   }
 
-  if (status === "loading") return <div className="page"><LoadingSpinner /></div>;
-  if (status === "error") return <div className="page"><ErrorMessage error={error} /></div>;
+  if (status === "loading")
+    return (
+      <div className="page">
+        <LoadingSpinner />
+      </div>
+    );
+  if (status === "error")
+    return (
+      <div className="page">
+        <ErrorMessage error={error} />
+      </div>
+    );
 
   return (
     <div className="page narrow">
@@ -54,16 +81,37 @@ export function EditListingPage() {
         </div>
         <div className="field">
           <label>Description</label>
-          <textarea name="description" rows="4" defaultValue={listing.description} required />
+          <textarea
+            name="description"
+            rows="4"
+            defaultValue={listing.description}
+            required
+          />
         </div>
         <div className="field">
           <label>Price (USD)</label>
-          <input name="price" type="number" step="0.01" defaultValue={listing.priceInCents / 100} required />
+          <input
+            name="price"
+            type="number"
+            step="0.01"
+            defaultValue={listing.priceInCents / 100}
+            required
+          />
         </div>
-        <button className="btn" type="submit">Save changes</button>
+        <button className="btn" type="submit" disabled={saveStatus === "saving"}>
+          {saveStatus === "saving" ? "Saving…" : "Save changes"}
+        </button>
+        {saveStatus === "saved" && <p role="status">Changes saved.</p>}
+        {saveStatus === "error" && (
+          <p role="alert">Could not save changes: {saveError.message}</p>
+        )}
       </form>
 
-      <PhotoUploader multiple onUpload={(files) => uploadListingPhotos(id, files)} label="Add more photos" />
+      <PhotoUploader
+        multiple
+        onUpload={(files) => uploadListingPhotos(id, files)}
+        label="Add more photos"
+      />
 
       <button className="btn danger" onClick={handleDelete}>
         Delete listing

@@ -152,22 +152,26 @@ export function ListingDetailPage() {
           <p className="detail-price">{formatCurrency(listing.priceInCents)}</p>
           <p>{listing.description}</p>
 
-          {currentUser && listing.type === LISTING_TYPE.PRODUCT && (
-            <div className="row">
-              <button className="btn" onClick={handleAddToCart}>
-                Add to cart
-              </button>
-              <button className="btn secondary" onClick={handleFavorite}>
-                Save to favorites
-              </button>
-            </div>
-          )}
-
-          {currentUser && listing.type === LISTING_TYPE.SERVICE && (
-            <Link to={`/bookings/new?listingId=${id}`} className="btn">
-              Check availability &amp; book
+          <div className="row">
+            <Link to={`/listings/${id}/edit`} className="btn secondary">
+              Edit listing
             </Link>
-          )}
+            {currentUser && listing.type === LISTING_TYPE.PRODUCT && (
+              <>
+                <button className="btn" type="button" onClick={handleAddToCart}>
+                  Add to cart
+                </button>
+                <button className="btn secondary" type="button" onClick={handleFavorite}>
+                  Save to favorites
+                </button>
+              </>
+            )}
+            {currentUser && listing.type === LISTING_TYPE.SERVICE && (
+              <Link to={`/bookings/new?listingId=${id}`} className="btn">
+                Check availability &amp; book
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

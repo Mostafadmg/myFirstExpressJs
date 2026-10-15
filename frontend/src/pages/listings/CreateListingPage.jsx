@@ -96,7 +96,7 @@ export function CreateListingPage() {
           <label>Category</label>
           <select name="category" required>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={c.slug}>
                 {c.name}
               </option>
             ))}

@@ -1,0 +1,8 @@
+### Update Listing
+PATCH http://localhost:5000/api/listings/5
+Content-Type: application/json
+
+{
+  "title": "Updated iPhone",
+  "priceInCents": 45000
+}

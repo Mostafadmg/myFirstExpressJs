@@ -14,7 +14,15 @@ export async function createListing(listing) {
 
     console.log(response);
     if (!response.ok) {
-      throw new Error("Failed to create listing");
+      const failedResponse = await response.json();
+      const errorMsg =
+        failedResponse.errors
+          ?.map((err) => `${err.path.join(".")}: ${err.message}`)
+          .join("; ") ||
+        failedResponse.message ||
+        "Failed to create listing";
+
+      throw new Error(errorMsg);
     }
 
     const createdListing = await response.json();
@@ -90,12 +98,54 @@ export async function getListingById(listingId) {
 
 // Expects: PATCH /api/listings/:id  body: partial listing fields
 export async function updateListing(listingId, updates) {
-  return request(`/listings/${listingId}`, { method: "PATCH", body: updates });
+  try {
+    const response = await fetch(`${url}/${listingId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      const failedResponse = await response.json();
+      const errorMsg =
+        failedResponse.errors
+          ?.map((issue) => {
+            const field = issue.path.join(".");
+            return field ? `${field}: ${issue.message}` : issue.message;
+          })
+          .join("; ") || failedResponse.message;
+
+      throw new Error(errorMsg);
+    }
+
+    const updatedListing = await response.json();
+    console.log(updatedListing);
+    return updatedListing;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 }
 
 // Expects: DELETE /api/listings/:id
 export async function deleteListing(listingId) {
-  return request(`/listings/${listingId}`, { method: "DELETE" });
+  try {
+    const response = await fetch(`${url}/${listingId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Could not delete the listing");
+    }
+
+    const data = response.json();
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw Error(error);
+  }
 }
 
 // Expects: GET /api/listings/mine  (current seller's own listings)

@@ -56,11 +56,11 @@ function seed() {
   ];
 
   const categories = [
-    { id: "home", name: "Home" },
-    { id: "audio", name: "Audio" },
-    { id: "wear", name: "Wear" },
-    { id: "plants", name: "Plants" },
-    { id: "workshop", name: "Workshops" },
+    { id: "home", slug: "home", name: "Home" },
+    { id: "audio", slug: "audio", name: "Audio" },
+    { id: "wear", slug: "wear", name: "Wear" },
+    { id: "plants", slug: "plants", name: "Plants" },
+    { id: "workshop", slug: "workshop", name: "Workshops" },
   ];
 
   const listings = [
@@ -347,7 +347,7 @@ export async function handlePlaceholderRequest(path, { method = "GET", body, isF
       name: "You",
       avatarUrl: "",
     };
-    const category = db.categories.find((entry) => entry.id === body.category);
+    const category = db.categories.find((entry) => entry.slug === body.category);
     const listing = {
       id: nextId("l"),
       sellerId: user.id,

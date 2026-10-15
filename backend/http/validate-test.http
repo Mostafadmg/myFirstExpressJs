@@ -1,0 +1,11 @@
+### Invalid product: stock is missing
+POST http://localhost:5000/api/listings
+Content-Type: application/json
+
+{
+  "title": "Test lamp",
+  "description": "A desk lamp for testing",
+  "priceInCents": 2500,
+  "category": "home",
+  "type": "product"
+}

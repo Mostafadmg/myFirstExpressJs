@@ -8,7 +8,7 @@ export function FilterPanel({ categories, filters, onChange }) {
       <select value={filters.category || ""} onChange={(e) => update("category", e.target.value)}>
         <option value="">All categories</option>
         {categories.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+          <option key={c.id} value={c.slug}>{c.name}</option>
         ))}
       </select>
       <input

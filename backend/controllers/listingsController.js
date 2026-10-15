@@ -9,6 +9,24 @@ function photoUrl(filePath) {
 }
 
 export async function createListing(req, res) {
+  const categoryResult = await pool.query(
+    `--sql
+      SELECT
+        id
+      FROM
+        categories
+      WHERE
+        slug = $1
+    `,
+    [req.body.category],
+  );
+
+  if (categoryResult.rows.length === 0) {
+    return res.status(400).json({
+      message: "Unkown category.",
+    });
+  }
+
   const result = await pool.query(
     `--sql
       INSERT INTO
@@ -52,22 +70,27 @@ export async function createListing(req, res) {
       1,
     ],
   );
+
   const listing = result.rows[0];
   console.log(listing);
   res.status(201).json(listing);
 }
 
 export async function getListings(req, res) {
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 12;
+  const result = req.validatedQuery;
+
+  const page = result.page;
+  const limit = result.limit;
+  const q = result.q;
+  const minPrice = result.minPrice;
+  const maxPrice = result.maxPrice;
+  const category = result.category;
+  const sort = result.sort;
   const offset = (page - 1) * limit;
-  const category = req.query.category || null;
-  const q = req.query.q || null;
-  const minPrice = req.query.minPrice || null;
-  const maxPrice = req.query.maxPrice || null;
-  let sort = req.query.sort || null;
-  const minPriceCents = minPrice ? Number(minPrice) * 100 : null;
-  const maxPriceCents = maxPrice ? Number(maxPrice) * 100 : null;
+
+  const minPriceCents = minPrice === undefined ? null : minPrice * 100;
+  const maxPriceCents = maxPrice === undefined ? null : maxPrice * 100;
+
   let orderBy = "listings.created_at DESC";
 
   if (sort === "price_asc") {
@@ -299,4 +322,95 @@ export async function getReviewsForListing(req, res) {
 
   const result = await pool.query(sql, [id]);
   res.json(result.rows);
+}
+
+export async function updateListing(req, res) {
+  const id = req.params.id;
+
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json("id must be a number, cannot be a string");
+  }
+
+  const { title, description, priceInCents, type, category, stock } = req.body;
+  const hasStock = Object.hasOwn(req.body, "stock");
+
+  const sql = `--sql
+    UPDATE listings
+    SET
+      title = COALESCE($1, title),
+      description = COALESCE($2, description),
+      price = COALESCE($3, price),
+      type = COALESCE($4, type),
+      stock = CASE WHEN $5 THEN $6 ELSE stock END,
+      category_id = COALESCE(
+        (
+          SELECT
+            id
+          FROM
+            categories
+          WHERE
+            slug = $7
+        ),
+        category_id
+      )
+    WHERE
+      id = $8
+    RETURNING
+      id,
+      title,
+      description,
+      price AS "priceInCents",
+      type,
+      stock;
+  `;
+
+  try {
+    const result = await pool.query(sql, [
+      title ?? null, // $1
+      description ?? null, // $2
+      priceInCents ?? null, // $3
+      type ?? null, // $4
+      hasStock, // $5: whether stock was supplied
+      stock ?? null, // $6: supplied stock value, including explicit null
+      category ?? null, // $7
+      id, // $8
+    ]);
+
+    const updatedListing = result.rows[0];
+
+    if (!updatedListing) {
+      return res.status(404).json({ message: "Listing Not Found" });
+    }
+
+    res.json(updatedListing);
+  } catch (error) {
+    console.error("Update listing error:", error);
+    res.status(500).json({ message: "Failed to update listing" });
+  }
+}
+
+export async function deleteListing(req, res) {
+  const id = req.params.id;
+
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({
+      message: "ID must contain only digits",
+    });
+  }
+
+  const sql = `--sql
+    DELETE FROM listings
+    WHERE
+      id = $1
+    RETURNING
+      id;
+  `;
+
+  const result = await pool.query(sql, [id]);
+
+  if (!result.rows[0]) {
+    return res.status(404).json({ message: "No listing found" });
+  }
+
+  return res.json({ id: result.rows[0].id });
 }
