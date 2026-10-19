@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { getListings } from "../../api/listingsApi.js";
 import { getCategories } from "../../api/categoriesApi.js";
 import { ListingGrid } from "../../components/listings/ListingGrid.jsx";
@@ -116,33 +116,28 @@ export function HomeFeedPage() {
   return (
     <div className="page">
       <section className="hero">
-        <div>
-          <p className="eyebrow">Goods · Time · People</p>
-          <h1>A market for things and hours.</h1>
-          <p>
-            Shop physical listings, book a time slot, or follow the person who made it.
-          </p>
+        <div className="hero-copy">
+          <p className="eyebrow">Good things, made by real people</p>
+          <h1>Find the pieces that feel like <em>you.</em></h1>
+          <p>Objects with a story. Skills worth sharing. A marketplace that brings the two together.</p>
+          <div className="hero-actions">
+            <a className="btn hero-primary" href="#collection">Explore the collection <span aria-hidden="true">↓</span></a>
+            <Link className="hero-secondary" to="/search">Meet the makers <span aria-hidden="true">↗</span></Link>
+          </div>
         </div>
-        <div className="hero-aside">
-          <div className="hero-chip">
-            <strong>Products</strong>
-            <span>Stock, cart, and checkout</span>
-          </div>
-          <div className="hero-chip">
-            <strong>Services</strong>
-            <span>A calendar of open slots</span>
-          </div>
-          <div className="hero-chip">
-            <strong>People</strong>
-            <span>Profiles, reviews, and messages</span>
-          </div>
+        <div className="hero-stamp">
+          <span className="hero-stamp-mark">M</span>
+          <span>Made with<br />a little more care</span>
         </div>
       </section>
+      <section id="collection" className="collection-section">
       <div className="browse-head">
         <div>
-          <p className="eyebrow">The floor</p>
-          <h2>Browse listings</h2>
+          <p className="eyebrow">The good stuff</p>
+          <h2>Find something lovely.</h2>
+          <p className="muted browse-description">A considered collection from independent sellers and makers.</p>
         </div>
+        <Link to="/listings/new" className="text-link">Have something to share? <span aria-hidden="true">↗</span></Link>
       </div>
       <SearchBar query={filters.q || ""} onSearch={handleSearch} />
       <FilterPanel
@@ -163,6 +158,7 @@ export function HomeFeedPage() {
           />
         </>
       )}
+      </section>
     </div>
   );
 }

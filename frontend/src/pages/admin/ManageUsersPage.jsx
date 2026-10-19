@@ -61,11 +61,19 @@ export function ManageUsersPage() {
             {users.map((user) => (
               <div key={user.id} className="card item-row">
                 <span><strong>{user.name}</strong> <span className="muted">{user.email}</span></span>
-                <select className="role-select" value={user.role} onChange={(e) => handleRoleChange(user.id, e.target.value)}>
-                  {Object.values(ROLES).map((role) => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
+                <div className="select-wrap role-select">
+                  <select
+                    aria-label={`Change role for ${user.name}`}
+                    value={user.role}
+                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                  >
+                    {Object.values(ROLES).map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <span className={`badge ${user.isBanned ? "cancelled" : "completed"}`}>{user.isBanned ? "Banned" : "Active"}</span>
                 {!user.isBanned && (
                   <button className="btn danger" onClick={() => handleBan(user.id)}>Ban</button>

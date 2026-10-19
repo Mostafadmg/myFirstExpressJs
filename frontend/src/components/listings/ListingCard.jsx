@@ -25,11 +25,6 @@ export function ListingCard({ listing }) {
           </div>
         </div>
       </Link>
-      <div className="listing-card-actions">
-        <Link to={`/listings/${listing.id}/edit`} className="btn secondary">
-          Edit
-        </Link>
-      </div>
     </article>
   );
 }

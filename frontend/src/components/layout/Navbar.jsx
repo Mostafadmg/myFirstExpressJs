@@ -15,8 +15,8 @@ export function Navbar() {
   return (
     <header className={`nav ${menuOpen ? "is-open" : ""}`}>
       <Link to="/" className="brand" onClick={closeMenu}>
-        <span className="brand-mark">M</span>
-        Marketspace
+        <span className="brand-mark" aria-hidden="true">M</span>
+        <span>Marketspace<span className="brand-period">.</span></span>
       </Link>
       <button
         className="btn secondary menu-toggle"
@@ -28,22 +28,36 @@ export function Navbar() {
       </button>
       <div className="nav-panel">
         <nav className="nav-links">
-          <NavLink to="/" end onClick={closeMenu}>Browse</NavLink>
-          <NavLink to="/listings/new" onClick={closeMenu}>Add listing</NavLink>
+          <NavLink to="/" end onClick={closeMenu}>Discover</NavLink>
+          <NavLink to="/search" onClick={closeMenu}>Search</NavLink>
+          <NavLink to="/listings/new" onClick={closeMenu}>Sell with us</NavLink>
         </nav>
         <div className="nav-actions">
           {currentUser ? (
             <>
-              <Link to="/notifications" onClick={closeMenu}>Notifications</Link>
-              <Link to="/messages" onClick={closeMenu}>Messages</Link>
-              <Link to="/cart" onClick={closeMenu}>Cart</Link>
-              <Link to="/orders" onClick={closeMenu}>Orders</Link>
-              <Link to="/bookings/mine" onClick={closeMenu}>Bookings</Link>
-              <Link to={`/profile/${currentUser.id}`} onClick={closeMenu}>Profile</Link>
-              <RoleGate allow={[ROLES.ADMIN]}>
-                <Link to="/admin" onClick={closeMenu}>Admin</Link>
-              </RoleGate>
-              <button className="btn secondary" onClick={() => { closeMenu(); logout(); }}>Log out</button>
+              <Link to="/cart" className="nav-bag" onClick={closeMenu} aria-label="Open your basket">
+                <span aria-hidden="true">Bag</span>
+              </Link>
+              <details className="account-menu">
+                <summary aria-label="Account menu">
+                  <span className="account-avatar" aria-hidden="true">
+                    {currentUser.name?.trim().charAt(0) || "M"}
+                  </span>
+                  <span className="account-name">{currentUser.name || "My account"}</span>
+                  <span className="account-chevron" aria-hidden="true" />
+                </summary>
+                <div className="account-dropdown">
+                  <NavLink to={`/profile/${currentUser.id}`} onClick={closeMenu}>My profile</NavLink>
+                  <NavLink to="/notifications" onClick={closeMenu}>Notifications</NavLink>
+                  <NavLink to="/messages" onClick={closeMenu}>Messages</NavLink>
+                  <NavLink to="/orders" onClick={closeMenu}>Orders</NavLink>
+                  <NavLink to="/bookings/mine" onClick={closeMenu}>Bookings</NavLink>
+                  <RoleGate allow={[ROLES.ADMIN]}>
+                    <NavLink to="/admin" onClick={closeMenu}>Admin</NavLink>
+                  </RoleGate>
+                  <button type="button" onClick={() => { closeMenu(); logout(); }}>Log out</button>
+                </div>
+              </details>
             </>
           ) : (
             <>

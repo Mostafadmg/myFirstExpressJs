@@ -12,7 +12,11 @@ DROP TABLE IF EXISTS users;
 CREATE TABLE users (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('seller', 'buyer', 'admin'))
+  role TEXT NOT NULL CHECK (role IN ('seller', 'buyer', 'admin')),
+  bio TEXT,
+  location TEXT,
+  avatar_path TEXT,
+  cover_photo_path TEXT
 );
 
 CREATE TABLE categories (

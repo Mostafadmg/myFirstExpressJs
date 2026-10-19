@@ -1,18 +1,87 @@
 -- Development sample data for Marketspace.
 -- Run schema.sql first, then run this whole file.
 
-INSERT INTO users (name, role)
+INSERT INTO users (
+  name,
+  role,
+  bio,
+  location,
+  avatar_path,
+  cover_photo_path
+)
 VALUES
-  ('Mostafa Adel', 'seller'),
-  ('Nora Hale', 'seller'),
-  ('Lina Ortega', 'buyer'),
-  ('Idris Cole', 'admin'),
-  ('Amina Yusuf', 'buyer'),
-  ('Jules Martin', 'buyer'),
-  ('Sana Rahman', 'buyer'),
-  ('Owen Price', 'buyer')
+  (
+    'Mostafa Adel',
+    'seller',
+    'I make small-batch goods and teach Saturday workshops.',
+    'Cairo',
+    'profiles/avatars/mostafa-adel.png',
+    'profiles/covers/mostafa-adel-cover.png'
+  ),
+  (
+    'Nora Hale',
+    'seller',
+    'Ceramics, slow mornings, and one-hour lessons.',
+    'Portland',
+    'profiles/avatars/nora-hale.png',
+    'profiles/covers/nora-hale-cover.png'
+  ),
+  (
+    'Lina Ortega',
+    'buyer',
+    'Collecting objects that will still look right in ten years.',
+    'Lisbon',
+    'profiles/avatars/lina-ortega.png',
+    'profiles/covers/lina-ortega-cover.png'
+  ),
+  (
+    'Idris Cole',
+    'admin',
+    'Keeps the floor honest.',
+    'London',
+    'profiles/avatars/idris-cole.png',
+    'profiles/covers/idris-cole-cover.png'
+  ),
+  (
+    'Amina Yusuf',
+    'buyer',
+    'Finding useful objects made with care.',
+    'Nairobi',
+    'profiles/avatars/amina-yusuf.png',
+    'profiles/covers/amina-yusuf-cover.png'
+  ),
+  (
+    'Jules Martin',
+    'buyer',
+    'Interested in good design and things built to last.',
+    'Montreal',
+    'profiles/avatars/jules-martin.png',
+    'profiles/covers/jules-martin-cover.png'
+  ),
+  (
+    'Sana Rahman',
+    'buyer',
+    'Plants, handmade pieces, and a calmer home.',
+    'Dhaka',
+    'profiles/avatars/sana-rahman.png',
+    'profiles/covers/sana-rahman-cover.png'
+  ),
+  (
+    'Owen Price',
+    'buyer',
+    'Looking for thoughtful gifts from independent makers.',
+    'Bristol',
+    'profiles/avatars/owen-price.png',
+    'profiles/covers/owen-price-cover.png'
+  )
 ON CONFLICT (name) DO UPDATE
-SET role = EXCLUDED.role;
+SET
+  role = EXCLUDED.role,
+  bio = EXCLUDED.bio,
+  location = EXCLUDED.location,
+  avatar_path = EXCLUDED.avatar_path,
+  cover_photo_path = EXCLUDED.cover_photo_path;
+
 
 INSERT INTO categories (slug, name)
 VALUES
@@ -185,3 +254,4 @@ FROM (VALUES
 ) AS sample(listing_title, author_name, rating, body)
 JOIN listings AS listing ON listing.title = sample.listing_title
 JOIN users AS author ON author.name = sample.author_name;
+

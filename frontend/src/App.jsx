@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage.jsx";
 import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage.jsx";
 
 import { HomeFeedPage } from "./pages/listings/HomeFeedPage.jsx";
+import { SearchResultsPage } from "./pages/search/SearchResultsPage.jsx";
 import { ListingDetailPage } from "./pages/listings/ListingDetailPage.jsx";
 import { CreateListingPage } from "./pages/listings/CreateListingPage.jsx";
 import { EditListingPage } from "./pages/listings/EditListingPage.jsx";
@@ -47,6 +48,7 @@ function App() {
       <main className="main">
         <Routes>
           <Route path="/" element={<HomeFeedPage />} />
+          <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

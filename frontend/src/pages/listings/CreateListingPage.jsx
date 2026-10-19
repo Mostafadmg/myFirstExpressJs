@@ -79,54 +79,94 @@ export function CreateListingPage() {
       <p>
         A photo is required. Submitting creates the listing and uploads that photo.
       </p>
-      <form onSubmit={handleSubmit} className="card">
+      <form onSubmit={handleSubmit} className="card listing-form">
         <div className="field">
-          <label>Title</label>
-          <input name="title" required />
-        </div>
-        <div className="field">
-          <label>Description</label>
-          <textarea name="description" rows="4" required />
-        </div>
-        <div className="field">
-          <label>Price (USD)</label>
-          <input name="price" type="number" step="0.01" min="0" required />
-        </div>
-        <div className="field">
-          <label>Category</label>
-          <select name="category" required>
-            {categories.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Type</label>
-          <select name="type" required>
-            <option value={LISTING_TYPE.PRODUCT}>Physical product (has stock)</option>
-            <option value={LISTING_TYPE.SERVICE}>
-              Bookable service (has availability)
-            </option>
-          </select>
-        </div>
-        <div className="field">
-          <label>Stock (products only)</label>
-          <input name="stock" type="number" min="0" />
-        </div>
-        <div className="field">
-          <label htmlFor="listing-photos">Photos</label>
+          <label htmlFor="listing-title">Title</label>
           <input
-            id="listing-photos"
-            name="photos"
-            type="file"
-            accept="image/*"
-            multiple
+            id="listing-title"
+            name="title"
+            placeholder="e.g. Walnut headphone stand"
             required
-            onChange={handlePhotoChange}
           />
-          <p className="muted">At least one photo is required.</p>
+        </div>
+        <div className="field">
+          <label htmlFor="listing-description">Description</label>
+          <textarea
+            id="listing-description"
+            name="description"
+            rows="4"
+            placeholder="Materials, dimensions, condition, and what makes it worth buying."
+            required
+          />
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="listing-price">Price (USD)</label>
+            <input
+              id="listing-price"
+              name="price"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="listing-stock">Stock (products only)</label>
+            <input id="listing-stock" name="stock" type="number" min="0" placeholder="1" />
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="listing-category">Category</label>
+            <div className="select-wrap">
+              <select id="listing-category" name="category" required>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="listing-type">Type</label>
+            <div className="select-wrap">
+              <select id="listing-type" name="type" required>
+                <option value={LISTING_TYPE.PRODUCT}>Physical product (has stock)</option>
+                <option value={LISTING_TYPE.SERVICE}>
+                  Bookable service (has availability)
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="field">
+          <span className="field-label" id="listing-photos-label">
+            Photos
+          </span>
+          <div className="file-upload">
+            <input
+              id="listing-photos"
+              className="file-upload-input"
+              name="photos"
+              type="file"
+              accept="image/*"
+              multiple
+              required
+              onChange={handlePhotoChange}
+              aria-labelledby="listing-photos-label"
+            />
+            <label htmlFor="listing-photos" className="file-upload-label">
+              <span className="file-upload-title">Upload photos</span>
+              <span className="file-upload-hint">
+                {photos.length > 0
+                  ? `${photos.length} photo${photos.length === 1 ? "" : "s"} selected`
+                  : "JPG, PNG, or WebP · at least one required"}
+              </span>
+            </label>
+          </div>
           {previews.length > 0 && (
             <div className="photo-preview-row">
               {previews.map((src) => (
@@ -136,9 +176,11 @@ export function CreateListingPage() {
           )}
         </div>
         {error && <ErrorMessage error={error} />}
-        <button className="btn" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create listing"}
-        </button>
+        <div className="listing-form-actions">
+          <button className="btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating…" : "Create listing"}
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -1,12 +1,7 @@
-import path from "path";
+import path from "node:path";
+import { unlink } from "node:fs/promises";
 import { pool } from "../db.js";
-
-const PORT = process.env.PORT || 5000;
-const PHOTOS_BASE_URL = `http://localhost:${PORT}/photos`;
-
-function photoUrl(filePath) {
-  return `${PHOTOS_BASE_URL}/${filePath}`;
-}
+import { photoUrl } from "../config.js";
 
 export async function createListing(req, res) {
   const categoryResult = await pool.query(
@@ -21,9 +16,10 @@ export async function createListing(req, res) {
     [req.body.category],
   );
 
-  if (categoryResult.rows.length === 0) {
+  const category = categoryResult.rows[0];
+  if (!category) {
     return res.status(400).json({
-      message: "Unkown category.",
+      message: "Unknown category.",
     });
   }
 
@@ -45,14 +41,7 @@ export async function createListing(req, res) {
           $2,
           $3,
           $4,
-          (
-            SELECT
-              id
-            FROM
-              categories
-            WHERE
-              slug = $5
-          ),
+          $5,
           $6,
           $7
         )
@@ -64,7 +53,7 @@ export async function createListing(req, res) {
       req.body.description,
       req.body.priceInCents,
       req.body.type,
-      req.body.category,
+      category.id,
       req.body.stock,
       // TODO: replace with logged-in user's id after auth
       1,
@@ -72,8 +61,7 @@ export async function createListing(req, res) {
   );
 
   const listing = result.rows[0];
-  console.log(listing);
-  res.status(201).json(listing);
+  return res.status(201).json(listing);
 }
 
 export async function getListings(req, res) {
@@ -88,8 +76,8 @@ export async function getListings(req, res) {
   const sort = result.sort;
   const offset = (page - 1) * limit;
 
-  const minPriceCents = minPrice === undefined ? null : minPrice * 100;
-  const maxPriceCents = maxPrice === undefined ? null : maxPrice * 100;
+  const minPriceCents = minPrice === undefined ? null : Math.round(minPrice * 100);
+  const maxPriceCents = maxPrice === undefined ? null : Math.round(maxPrice * 100);
 
   let orderBy = "listings.created_at DESC";
 
@@ -171,7 +159,7 @@ export async function getListings(req, res) {
     type: row.type,
     category: row.category,
     photoUrl: row.file_path ? photoUrl(row.file_path) : null,
-    averageRating: Number(row.averageRating) || 0,
+    averageRating: row.averageRating === null ? null : Number(row.averageRating),
   }));
 
   const countResult = await pool.query(countSql, filterParams);
@@ -190,8 +178,16 @@ export async function getListingById(req, res) {
         listings.price AS "priceInCents",
         listings.type,
         listings.stock,
+        listings.seller_id AS "sellerId",
+        seller.name AS "sellerName",
+        seller.avatar_path AS "sellerAvatarPath",
         categories.name AS category,
         categories.slug AS "categoryId",
+        (
+          SELECT AVG(reviews.rating)
+          FROM reviews
+          WHERE reviews.listing_id = listings.id
+        ) AS "averageRating",
         COALESCE(
           json_agg(
             json_build_object(
@@ -211,11 +207,13 @@ export async function getListingById(req, res) {
       FROM
         listings
         JOIN categories ON categories.id = listings.category_id
+        JOIN users AS seller ON seller.id = listings.seller_id
         LEFT JOIN listing_photos ON listing_photos.listing_id = listings.id
       WHERE
         listings.id = $1
       GROUP BY
         listings.id,
+        seller.id,
         categories.name,
         categories.slug
     `,
@@ -228,11 +226,12 @@ export async function getListingById(req, res) {
 
   const listing = result.rows[0];
   const photos = listing.photos_meta.map((photo) => photoUrl(photo.filePath));
-  const { photos_meta, ...rest } = listing;
+  const { photos_meta, sellerAvatarPath, ...rest } = listing;
 
   res.json({
     ...rest,
-    averageRating: 0,
+    averageRating: listing.averageRating === null ? null : Number(listing.averageRating),
+    sellerAvatarUrl: sellerAvatarPath ? photoUrl(sellerAvatarPath) : null,
     photoUrl: photos[0] ?? null,
     photos,
   });
@@ -244,36 +243,60 @@ export async function uploadListingPhotos(req, res) {
   }
 
   const listingId = req.params.id;
-  const countResult = await pool.query(
-    `--sql
-      SELECT
-        COALESCE(MAX(sort_order), -1) AS max_sort
-      FROM
-        listing_photos
-      WHERE
-        listing_id = $1
-    `,
-    [listingId],
-  );
-  let nextSort = countResult.rows[0].max_sort + 1;
+  let client;
+  let transactionStarted = false;
 
-  const saved = [];
-  for (const file of req.files) {
-    const filePath = path.join("listings", file.filename).replace(/\\/g, "/");
-    await pool.query(
-      `--sql
-        INSERT INTO
-          listing_photos (listing_id, file_path, sort_order)
-        VALUES
-          ($1, $2, $3)
-      `,
-      [listingId, filePath, nextSort],
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    // Lock this listing so concurrent uploads allocate distinct photo orders.
+    const listingResult = await client.query(
+      "SELECT id FROM listings WHERE id = $1 FOR UPDATE",
+      [listingId],
     );
-    saved.push({ filePath, url: photoUrl(filePath), sortOrder: nextSort });
-    nextSort += 1;
-  }
+    if (!listingResult.rows[0]) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      await Promise.allSettled(req.files.map((file) => unlink(file.path)));
+      return res.status(404).json({ message: "Listing not found." });
+    }
 
-  res.status(201).json({ photos: saved });
+    const countResult = await client.query(
+      `--sql
+        SELECT COALESCE(MAX(sort_order), -1) AS max_sort
+        FROM listing_photos
+        WHERE listing_id = $1
+      `,
+      [listingId],
+    );
+    let nextSort = countResult.rows[0].max_sort + 1;
+    const saved = [];
+
+    for (const file of req.files) {
+      const filePath = path.join("listings", file.filename).replace(/\\/g, "/");
+      await client.query(
+        `--sql
+          INSERT INTO listing_photos (listing_id, file_path, sort_order)
+          VALUES ($1, $2, $3)
+        `,
+        [listingId, filePath, nextSort],
+      );
+      saved.push({ filePath, url: photoUrl(filePath), sortOrder: nextSort });
+      nextSort += 1;
+    }
+
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return res.status(201).json({ photos: saved });
+  } catch (error) {
+    if (transactionStarted) await client.query("ROLLBACK").catch(() => {});
+    await Promise.allSettled(req.files.map((file) => unlink(file.path)));
+    throw error;
+  } finally {
+    client?.release();
+  }
 }
 
 export async function getCommentsForListing(req, res) {
@@ -326,13 +349,20 @@ export async function getReviewsForListing(req, res) {
 
 export async function updateListing(req, res) {
   const id = req.params.id;
-
-  if (!/^\d+$/.test(id)) {
-    return res.status(400).json("id must be a number, cannot be a string");
-  }
-
   const { title, description, priceInCents, type, category, stock } = req.body;
   const hasStock = Object.hasOwn(req.body, "stock");
+
+  let categoryId = null;
+  if (category !== undefined) {
+    const categoryResult = await pool.query(
+      "SELECT id FROM categories WHERE slug = $1",
+      [category],
+    );
+    if (!categoryResult.rows[0]) {
+      return res.status(400).json({ message: "Unknown category." });
+    }
+    categoryId = categoryResult.rows[0].id;
+  }
 
   const sql = `--sql
     UPDATE listings
@@ -341,18 +371,11 @@ export async function updateListing(req, res) {
       description = COALESCE($2, description),
       price = COALESCE($3, price),
       type = COALESCE($4, type),
-      stock = CASE WHEN $5 THEN $6 ELSE stock END,
-      category_id = COALESCE(
-        (
-          SELECT
-            id
-          FROM
-            categories
-          WHERE
-            slug = $7
-        ),
-        category_id
-      )
+      stock = CASE
+        WHEN $5 THEN $6
+        ELSE stock
+      END,
+      category_id = COALESCE($7, category_id)
     WHERE
       id = $8
     RETURNING
@@ -364,53 +387,73 @@ export async function updateListing(req, res) {
       stock;
   `;
 
-  try {
-    const result = await pool.query(sql, [
+  const result = await pool.query(sql, [
       title ?? null, // $1
       description ?? null, // $2
       priceInCents ?? null, // $3
       type ?? null, // $4
       hasStock, // $5: whether stock was supplied
       stock ?? null, // $6: supplied stock value, including explicit null
-      category ?? null, // $7
+      categoryId, // $7
       id, // $8
-    ]);
+  ]);
 
-    const updatedListing = result.rows[0];
+  const updatedListing = result.rows[0];
 
-    if (!updatedListing) {
-      return res.status(404).json({ message: "Listing Not Found" });
-    }
-
-    res.json(updatedListing);
-  } catch (error) {
-    console.error("Update listing error:", error);
-    res.status(500).json({ message: "Failed to update listing" });
+  if (!updatedListing) {
+    return res.status(404).json({ message: "Listing not found." });
   }
+
+  return res.json(updatedListing);
 }
 
 export async function deleteListing(req, res) {
   const id = req.params.id;
+  const client = await pool.connect();
+  let transactionStarted = false;
 
-  if (!/^\d+$/.test(id)) {
-    return res.status(400).json({
-      message: "ID must contain only digits",
-    });
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+    const listingResult = await client.query(
+      "SELECT id FROM listings WHERE id = $1 FOR UPDATE",
+      [id],
+    );
+    if (!listingResult.rows[0]) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      return res.status(404).json({ message: "Listing not found." });
+    }
+
+    const photoResult = await client.query(
+      "SELECT file_path FROM listing_photos WHERE listing_id = $1",
+      [id],
+    );
+    await client.query("DELETE FROM listings WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    transactionStarted = false;
+
+    const photosRoot = path.resolve("photos");
+    const removals = await Promise.allSettled(
+      photoResult.rows.map(({ file_path }) => {
+        const absolutePath = path.resolve(photosRoot, file_path);
+        if (!absolutePath.startsWith(`${photosRoot}${path.sep}`)) {
+          throw new Error("Stored photo path points outside the photos directory.");
+        }
+        return unlink(absolutePath);
+      }),
+    );
+    for (const removal of removals) {
+      if (removal.status === "rejected" && removal.reason.code !== "ENOENT") {
+        console.error("Could not remove listing photo:", removal.reason);
+      }
+    }
+
+    return res.json({ id: Number(id) });
+  } catch (error) {
+    if (transactionStarted) await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const sql = `--sql
-    DELETE FROM listings
-    WHERE
-      id = $1
-    RETURNING
-      id;
-  `;
-
-  const result = await pool.query(sql, [id]);
-
-  if (!result.rows[0]) {
-    return res.status(404).json({ message: "No listing found" });
-  }
-
-  return res.json({ id: result.rows[0].id });
 }

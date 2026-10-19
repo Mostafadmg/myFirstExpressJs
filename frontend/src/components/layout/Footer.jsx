@@ -3,10 +3,13 @@ export function Footer() {
     <footer className="site-footer">
       <div className="footer-inner">
         <div>
-          <strong>Marketspace</strong>
-          <p>Goods, bookable time, and the people behind both.</p>
+          <strong>Marketspace<span className="brand-period">.</span></strong>
+          <p>A home for thoughtfully made things and the people behind them.</p>
         </div>
-        <p className="muted">Placeholder data in the browser. No server yet.</p>
+        <div className="footer-meta">
+          <span>Independent by nature. Better together.</span>
+          <span>© {new Date().getFullYear()} Marketspace</span>
+        </div>
       </div>
     </footer>
   );

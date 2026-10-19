@@ -15,8 +15,8 @@ export function SearchBar({ onSearch, query = "", placeholder = "Search Marketsp
   }
 
   return (
-    <form onSubmit={handleSubmit} className="row search-bar">
-      <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} />
+    <form onSubmit={handleSubmit} className="row search-bar" role="search">
+      <input type="search" aria-label={placeholder} value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} />
       <button className="btn" type="submit">Search</button>
     </form>
   );
